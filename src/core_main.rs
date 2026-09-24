@@ -73,6 +73,8 @@ pub fn core_main() -> Option<Vec<String>> {
                 _is_quick_support = true;
             } else if arg == "--no-server" {
                 no_server = true;
+            } else if arg.starts_with("-psn") {
+                // Ignore macOS LaunchServices Process Serial Number argument
             } else {
                 args.push(arg);
             }

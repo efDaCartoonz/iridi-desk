@@ -57,11 +57,6 @@ vcpkg_installed
 flutter/lib/generated_plugin_registrant.dart
 libsciter.dylib
 flutter/web/
-# iRidiDesk private build parameters
-.env
-.env.local
-.env.production
-
 # Local packaged builds
 /iridi_desk*.exe
 /iRidiDesk*.exe
@@ -69,12 +64,16 @@ flutter/web/
 /iridi_desk*.7z
 /iridi_desk*_payload/
 /iRidiDesk*_payload/
-# iRidiDesk private build parameters
+# Local private configuration
 .env
 .env.*
 !.env.example
+
+# Local handoff notes for AI assistants
+/CODEX-HANDOFF.md
+/MACOS-HANDOFF.md
+
 # Build artifacts
-target/
 *.exe
 *.dll
 *.pdb
@@ -82,6 +81,3 @@ target/
 *.7z
 *.rar
 *.msi
-# Local backups
-*.bak
-*.bak*

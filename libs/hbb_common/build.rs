@@ -2,8 +2,36 @@ fn main() {
     // Server settings belong to the branded client build, not to a user-editable
     // configuration file. Store them as encoded bytes so a casual string search
     // of the executable does not reveal the deployment endpoints.
+    fn get_config_var(env_name: &str) -> String {
+        if let Ok(value) = std::env::var(env_name) {
+            if !value.trim().is_empty() {
+                return value;
+            }
+        }
+        for dot_env in [
+            std::path::PathBuf::from(".env"),
+            std::path::PathBuf::from("../../.env"),
+            std::path::PathBuf::from("../.env"),
+        ] {
+            if let Ok(content) = std::fs::read_to_string(&dot_env) {
+                for line in content.lines() {
+                    let line = line.trim();
+                    if line.starts_with('#') || line.is_empty() {
+                        continue;
+                    }
+                    if let Some((k, v)) = line.split_once('=') {
+                        if k.trim() == env_name {
+                            return v.trim().to_string();
+                        }
+                    }
+                }
+            }
+        }
+        String::new()
+    }
+
     fn obfuscated_function(env_name: &str, function_name: &str) -> String {
-        let value = std::env::var(env_name).unwrap_or_default();
+        let value = get_config_var(env_name);
         let bytes: Vec<u8> = value
             .bytes()
             .enumerate()
@@ -33,6 +61,8 @@ fn main() {
     ] {
         println!("cargo:rerun-if-env-changed={name}");
     }
+    println!("cargo:rerun-if-changed=../../.env");
+    println!("cargo:rerun-if-changed=.env");
 
     let out_dir = format!("{}/protos", std::env::var("OUT_DIR").unwrap());
 

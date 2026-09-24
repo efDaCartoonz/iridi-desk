@@ -37,7 +37,48 @@ Then create the local release archive from PowerShell:
 
 The command builds `iRidiDesk.exe`, packages the required service, Sciter runtime and UI files, and produces `dist/iRidiDesk-<version>-win32.zip`. The `.env` file stays local and is never packaged or committed.
 
-##Notes
+## macOS Release Build (Apple Silicon ARM64, Intel x86_64, Universal)
+
+### Prerequisites
+
+1. Install Rust targets:
+   ```bash
+   rustup target add aarch64-apple-darwin x86_64-apple-darwin
+   ```
+
+2. Install build tools via Homebrew:
+   ```bash
+   brew install nasm yasm pkg-config
+   ```
+
+3. Install C/C++ dependencies via vcpkg:
+   ```bash
+   export VCPKG_ROOT=$HOME/vcpkg
+   vcpkg install libvpx:arm64-osx libyuv:arm64-osx opus:arm64-osx aom:arm64-osx libjpeg-turbo:arm64-osx
+   vcpkg install libvpx:x64-osx libyuv:x64-osx opus:x64-osx aom:x64-osx libjpeg-turbo:x64-osx
+   ```
+
+4. Universal `libsciter.dylib` is placed in `res/libsciter.dylib`.
+
+### Building packages
+
+Run the build script:
+
+```bash
+# Build Universal binary (.app, .dmg, .zip)
+./scripts/build-macos.sh 1.0.1 universal
+
+# Or target specific architectures:
+./scripts/build-macos.sh 1.0.1 arm64
+./scripts/build-macos.sh 1.0.1 x86_64
+```
+
+The output bundles and disk images are generated in `dist/`:
+- `iRidiDesk-1.0.1-macos-arm64.dmg` & `.zip`
+- `iRidiDesk-1.0.1-macos-x86_64.dmg` & `.zip`
+- `iRidiDesk-1.0.1-macos-universal.dmg` & `.zip`
+
+## Notes
 
 This build is intended only for receiving incoming iRidi remote support connections.
 Outgoing connection UI and server configuration UI are intentionally removed or hidden.

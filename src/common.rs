@@ -626,7 +626,7 @@ pub fn test_nat_type() {
 async fn test_nat_type_() -> ResultType<bool> {
     log::info!("Testing nat ...");
     let start = std::time::Instant::now();
-    let server1 = Config::get_rendezvous_server();
+    let server1 = crate::check_port(Config::get_rendezvous_server(), RENDEZVOUS_PORT);
     let server2 = crate::increase_port(&server1, -1);
     let mut msg_out = RendezvousMessage::new();
     let serial = Config::get_serial();

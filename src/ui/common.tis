@@ -1,8 +1,10 @@
 include "sciter:reactor.tis";
 
 var handler = $(#handler) || view;
-try { view.windowIcon = self.url(handler.get_icon()); } catch(e) {}
+// On macOS, setting Sciter's window icon also replaces the Dock icon with the
+// small built-in PNG. Let LaunchServices use iRidiDesk.icns from the app bundle.
 var OS = view.mediaVar("platform");
+try { if (OS != "OSX") view.windowIcon = self.url(handler.get_icon()); } catch(e) {}
 var is_osx = OS == "OSX";
 var is_win = OS == "Windows";
 var is_linux = OS == "Linux";

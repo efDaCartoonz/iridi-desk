@@ -884,7 +884,9 @@ impl Config {
                 log::info!("Generated id {}", id);
                 Some(id.to_string())
             } else {
-                None
+                let random_id = rand::thread_rng().gen_range(100_000_000..1_000_000_000);
+                log::info!("Generated fallback random id {}", random_id);
+                Some(random_id.to_string())
             }
         }
     }
@@ -2523,9 +2525,6 @@ pub fn is_disable_tcp_listen() -> bool {
 
 #[inline]
 pub fn is_disable_settings() -> bool {
-    if IRIDI_THIN_CLIENT {
-        return true;
-    }
     is_some_hard_opton("disable-settings")
 }
 

@@ -568,13 +568,17 @@ fn run(vs: VideoService) -> ResultType<()> {
         last_portable_service_running
     );
     let mut c = get_capturer(vs.source, display_idx, last_portable_service_running)?;
+    #[cfg(windows)]
+    let is_gdi = c.is_gdi();
+    #[cfg(not(windows))]
+    let is_gdi = false;
     log::info!(
         "iRidi elevation debug: capturer created, display_idx={}, portable_service_running={}, size={}x{}, gdi={}",
         display_idx,
         last_portable_service_running,
         c.width,
         c.height,
-        c.is_gdi()
+        is_gdi
     );
     #[cfg(windows)]
     if !scrap::codec::enable_directx_capture() && !c.is_gdi() {

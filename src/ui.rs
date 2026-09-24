@@ -71,6 +71,24 @@ pub fn start(args: &mut [String]) {
             }
         }
     }
+    #[cfg(target_os = "macos")]
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            for candidate in [
+                parent.join("libsciter.dylib"),
+                parent.join("../Frameworks/libsciter.dylib"),
+                parent.join("../Resources/libsciter.dylib"),
+                std::path::PathBuf::from("libsciter.dylib"),
+                std::path::PathBuf::from("res/libsciter.dylib"),
+            ] {
+                if candidate.exists() {
+                    let p = candidate.to_string_lossy().to_string();
+                    log::debug!("Found dylib:{}, \n {:?}", p, sciter::set_library(&p));
+                    break;
+                }
+            }
+        }
+    }
     // https://github.com/c-smile/sciter-sdk/blob/master/include/sciter-x-types.h
     // https://github.com/rustdesk/rustdesk/issues/132#issuecomment-886069737
     #[cfg(windows)]

@@ -178,5 +178,5 @@ if ($blocking.Count -eq 0) {
     exit 0
 }
 
-Write-Host 'Environment is not ready yet. Send the complete table above to Codex.' -ForegroundColor Yellow
+Write-Host 'Environment is not ready yet. Save the complete table above for troubleshooting.' -ForegroundColor Yellow
 exit 1

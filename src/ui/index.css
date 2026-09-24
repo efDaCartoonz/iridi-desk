@@ -53,11 +53,20 @@ body {
     padding-bottom: 60px; /* reserve space for bottom connect-status */
 }
 
-.left-pane > div.connect-status {
+.left-pane > div.connect-status,
+div.connect-status {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
+    width: *;
+    height: 40px;
+    line-height: 40px;
+    padding: 0 20px;
+    border-top: color(border) solid 1px;
+    background: color(bg);
+    flow: horizontal;
+    vertical-align: middle;
 }
 
 .left-pane div {
@@ -189,7 +198,6 @@ span.clear-input:hover {
 }
 
 div.connect-status {
-    left: 240px;
     border-top: color(border) solid 1px;
     width: 100%;
     padding: 1em;
@@ -338,18 +346,19 @@ svg#edit {
 }
 
 div.install-me, div.trust-me {
-    margin-top: 0.5em;
-    padding: 20px;
+    margin-top: 10px;
+    padding: 12px 16px;
     color: white;
-    background: linear-gradient(left,#e242bc,#f4727c);
+    background: linear-gradient(left, #0878d1, #46b8ef);
+    border-radius: 8px;
 }
 
 div.trust-me > div:nth-child(1),
 div.install-me > div:nth-child(1) {
-    font-size: 1.2em;
+    font-size: 1.05em;
     font-weight: bold;
     text-align: center;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.25em;
 }
 
 div.install-me > div:nth-child(2) {
@@ -362,13 +371,13 @@ div.install-me > div:nth-child(2) {
 
 div.trust-me > div:nth-child(2) {
     font-size: 0.9em;
-    margin-bottom: 1em;
+    margin-bottom: 0.5em;
 }
 
 div.install-me > div:nth-child(3),
 div.trust-me > div:nth-child(3) {
     text-align: center;
-    font-size: 1.5em;
+    font-size: 1.1em;
     font-weight: bold;
 }
 
@@ -384,11 +393,23 @@ div#myid, div#tags-label {
 
 div#myid svg#menu, div#tags-label svg#menu {
     position: absolute;
-    right: -1em;
+    right: 0px;
+    top: 0px;
+    cursor: pointer;
+    size: 16px;
+    padding: 2px 4px;
 }
 
-div#tags-label svg#menu:hover {
-    background-color: #ddd;
+div#myid svg#menu:hover, div#tags-label svg#menu:hover {
+    /* handled in iRidi section */
+}
+
+div.password svg {
+    cursor: pointer;
+}
+
+div.password svg:hover {
+    /* hover styles handled in iRidi section below */
 }
 
 div.remote-session svg#menu {
@@ -449,6 +470,9 @@ div.app {
     height: * !important;
     min-width: 0 !important;
     background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
 }
 
 div.app {
@@ -463,93 +487,250 @@ div.left-pane {
     min-height: 0 !important;
     border-right: none !important;
     background: #fff !important;
-    padding-bottom: 0 !important;
+    flow: vertical !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-/* Скрываем всё лишнее слева, кроме блока "Ваш рабочий стол" */
-div.left-pane > *:not(:first-child) {
-    display: none !important;
+div.left-pane > div.main-content {
+    width: * !important;
+    height: * !important;
+    padding: 16px !important;
+    border-spacing: 10px !important;
+    overflow-y: auto !important;
 }
 
 /* Нижний статус-бар фиксированной высоты */
-div.right-pane {
-    width: * !important;
-    min-width: 0 !important;
-
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
-
-    border-left: none !important;
-    border-top: 1px solid #e5e5e5 !important;
-    background: #fff !important;
-
-    padding: 0 !important;
-    margin: 0 !important;
-
-    flow: horizontal !important;
-    horizontal-align: left !important;
-    vertical-align: middle !important;
-}
-
-/* Скрываем центральную область */
-div.right-pane > div.right-content {
-    display: none !important;
-}
-
-/* Сам статус: одна строка, слева, по центру высоты бара */
-div.right-pane > div.connect-status {
+div.left-pane > div.connect-status {
     display: block !important;
     visibility: visible !important;
-
     position: static !important;
-    float: none !important;
-
     width: * !important;
-    min-width: 0 !important;
-
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
-
+    min-height: 38px !important;
+    height: 38px !important;
+    max-height: 38px !important;
     margin: 0 !important;
-    padding: 0 0 0 20px !important;
-
-    line-height: 34px !important;
-
-    border: none !important;
+    padding: 0 20px !important;
+    line-height: 38px !important;
+    border-top: 1px solid #e5e5e5 !important;
     background: #fff !important;
-
-    text-align: left !important;
-    horizontal-align: left !important;
-    vertical-align: middle !important;
-
     flow: horizontal !important;
     border-spacing: 8px !important;
+    vertical-align: middle !important;
     overflow: hidden !important;
 }
 
 /* Все элементы статуса держим в одной строке */
-div.right-pane > div.connect-status > * {
+div.left-pane > div.connect-status > * {
     margin: 0 !important;
     padding: 0 !important;
     vertical-align: middle !important;
-    line-height: 34px !important;
+    line-height: 38px !important;
 }
 
 /* Индикатор статуса */
-div.right-pane > div.connect-status > span.connect-status-icon {
+div.left-pane > div.connect-status > span.connect-status-icon {
     display: inline-block !important;
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 4px !important;
     margin-right: 8px !important;
     vertical-align: middle !important;
 }
 
-/* Ссылка "Запустить службу" не должна уезжать вправо */
-div.right-pane > div.connect-status span.link,
-div.right-pane > div.connect-status .link,
-div.right-pane > div.connect-status a {
-    margin-left: 8px !important;
-    text-align: left !important;
-    horizontal-align: left !important;
-    line-height: 34px !important;
+/* Ссылка "Запустить службу" */
+div.left-pane > div.connect-status span.link {
+    cursor: pointer !important;
+    color: #3880ff !important;
+    text-decoration: underline !important;
+}
+
+svg#menu, svg#edit, svg#refresh-password {
+    cursor: pointer !important;
+    pointer-events: all !important;
+}
+
+/* ── #myid block (ID section) ─────────────────────────── */
+div#myid {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* ⋮ button: absolute, vertically centered in the whole #myid block */
+div#myid span.menu-btn {
+    position: absolute !important;
+    right: 0px !important;
+    top: 50% !important;
+    margin-top: -12px !important;   /* half of 24px icon total height */
+    cursor: pointer !important;
+    pointer-events: all !important;
+    z-index: 20 !important;
+    display: inline-block !important;
+    width: 24px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    text-align: center !important;
+    border-radius: 4px !important;
+    background: none !important;
+}
+
+div#myid span.menu-btn:hover {
+    background: #f0f0f0 !important;
+}
+
+/* Override base svg#menu styles inside #myid */
+div#myid svg#menu {
+    position: static !important;
+    display: block !important;
+    size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    padding: 0 !important;
+    margin: 5px auto !important;
+    background: none !important;
+    color: #aaa !important;
+    z-index: auto !important;
+}
+
+div#myid svg#menu:hover,
+div#myid span.menu-btn:hover svg#menu {
+    background: none !important;
+    color: #333 !important;
+}
+
+/* ── Password row icons (↺ refresh and ✏ pencil) ───────── */
+div.password {
+    position: relative !important;
+    flow: horizontal !important;
+    vertical-align: middle !important;
+}
+
+div.eye-area {
+    vertical-align: middle !important;
+}
+
+/* Wrapper span for pencil icon */
+div.password span.edit-btn {
+    display: inline-block !important;
+    width: 22px !important;
+    height: 22px !important;
+    line-height: 22px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    border-radius: 4px !important;
+    background: none !important;
+    cursor: pointer !important;
+    pointer-events: all !important;
+    z-index: 10 !important;
+    padding: 0 !important;
+    margin-left: 2px !important;
+}
+
+div.password span.edit-btn:hover {
+    background: #f0f0f0 !important;
+}
+
+div.password svg#edit {
+    display: block !important;
+    size: 13px !important;
+    width: 13px !important;
+    height: 13px !important;
+    padding: 0 !important;
+    margin: 4px auto !important;
+    background: none !important;
+    color: #0878d1 !important;
+    fill: #0878d1 !important;
+    stroke: #0878d1 !important;
+    pointer-events: none !important;
+}
+
+div.password svg#edit:hover,
+div.password span.edit-btn:hover svg#edit {
+    background: none !important;
+    color: #045a9d !important;
+    fill: #045a9d !important;
+    stroke: #045a9d !important;
+}
+
+div.iridi-options {
+    flow: vertical;
+    border-spacing: 0;
+    padding: 0;
+    border: 1px solid #d8d8dc;
+    border-radius: 9px;
+    overflow: hidden;
+}
+
+div.iridi-options > div {
+    display: block;
+    padding: 9px 12px;
+    background: #ffffff;
+    color: #1d1d1f;
+    font-weight: 400;
+    border-bottom: 1px solid #e5e5e8;
+}
+
+div.iridi-options > div:last-child { border-bottom: 0; }
+
+div.iridi-options > div:hover {
+    background: #e8f4fc;
+    color: #006bb4;
+}
+
+/* Compact macOS-like sheets used by the iRidi support controls. */
+div.iridi-dialog-overlay > div:first-child {
+    background: rgba(20, 28, 38, 0.28) !important;
+    opacity: 1 !important;
+}
+
+div.iridi-dialog {
+    border: 1px solid rgba(0, 0, 0, 0.16) !important;
+    border-radius: 12px;
+    background: #f7f7f9 !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+    overflow: hidden;
+}
+
+div.iridi-dialog > div.caption {
+    background: #f7f7f9 !important;
+    color: #1d1d1f !important;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 14px 34px 8px;
+}
+
+div.iridi-dialog div[style*="padding: 1em 2em"] {
+    padding: 10px 16px 14px !important;
+}
+
+div.iridi-dialog button#cancel {
+    color: #006bb4 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+/* ↺ refresh button */
+div.password svg#refresh-password {
+    display: inline-block !important;
+    size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    vertical-align: middle !important;
+    stroke: #aaa !important;
+    background: none !important;
+    pointer-events: all !important;
+    cursor: pointer !important;
+    padding: 3px !important;
+    border-radius: 4px !important;
+}
+
+div.password svg#refresh-password:hover {
+    stroke: #333 !important;
+    background: #f0f0f0 !important;
+}
+
+div.left-pane > div.main-content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }

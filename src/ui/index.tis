@@ -6,9 +6,10 @@ stdout.println("is_xfce: ", is_xfce);
 const msgbox_default_height = 180;
 const incoming_only_width = 560;
 
-// The backend rejects outgoing connections for this thin client. Keep the
-// local support credentials visible so the user can give them to support.
-const outgoing_only = false;
+// The thin client receives support sessions only. Keep the normal RustDesk
+// connection dashboard out of the interface while the backend rejects every
+// outgoing connection attempt.
+const outgoing_only = handler.is_outgoing_only();
 const incoming_only = handler.is_incoming_only();
 const disable_installation = handler.is_disable_installation();
 const disable_account = handler.is_disable_account();
@@ -21,10 +22,11 @@ const hide_websocket_settings = handler.get_builtin_option("hide-websocket-setti
 const disable_change_permanent_password = handler.get_builtin_option("disable-change-permanent-password") == "Y";
 const disable_change_id = handler.get_builtin_option("disable-change-id") == "Y";
 
-// html min-width, min-height not working on mac, below works for all
+// html min-width, min-height not working on mac, below works for all.
+// The support client is deliberately a compact, non-resizable macOS window.
 if (incoming_only) {
-  view.windowMinSize = (scaleIt(incoming_only_width), scaleIt((handler.is_installed() || disable_installation) ? 300 : 390));
-  view.windowMaxSize = (scaleIt(incoming_only_width), scaleIt((handler.is_installed() || disable_installation) ? 300 : 390));
+  view.windowMinSize = (scaleIt(incoming_only_width), scaleIt(390));
+  if (is_osx) view.windowMaxSize = (scaleIt(incoming_only_width), scaleIt(390));
 } else {
   view.windowMinSize = (scaleIt(560), scaleIt(300));
 }
@@ -38,6 +40,11 @@ var using_public_server = handler.using_public_server();
 var software_update_url = "";
 var key_confirmed = tmp[1];
 var system_error = "";
+// Keep the permission notices in sync when System Settings returns focus to
+// the app. The previous implementation only hid DOM nodes and could leave the
+// next permission notice stale after a grant.
+var screen_recording_allowed = handler.is_can_screen_recording(false);
+var accessibility_allowed = handler.is_process_trusted(false);
 
 const default_option_lang = is_custom_client ? 'default' : '';
 const default_option_yes = is_custom_client ? 'Y' : '';
@@ -70,12 +77,16 @@ function get_msgbox_width(width=500) {
 
 class ConnectStatus: Reactor.Component {
     function render() {
-        return
-            <div .connect-status>
-                <span class={"connect-status-icon connect-status" + (service_stopped ? 0 : connect_status)} />
-                {this.getConnectStatusStr()}
-                {service_stopped ? <span .link #start-service>{translate('Start service')}</span> : ""}
+        if (service_stopped) {
+            return <div .connect-status>
+                <span class="connect-status-icon connect-status-1" />
+                <span .link #start-service>{translate('Service is not running')}</span>
             </div>;
+        }
+        return <div .connect-status>
+            <span class={"connect-status-icon connect-status" + connect_status} />
+            {this.getConnectStatusStr()}
+        </div>;
     }
 
     function getConnectStatusStr() {
@@ -86,12 +97,14 @@ class ConnectStatus: Reactor.Component {
         } else if (connect_status == 0) {
             return translate('connecting_status');
         }
-        if (!handler.using_public_server()) return translate('Ready');
-        return <span>{translate("Ready")}, <span .link #setup-server>{translate("setup_server_tip")}</span></span>;
+        return translate('Ready');
     }
 
     event click $(#start-service) () {
         handler.set_option("stop-service", "");
+        service_stopped = false;
+        connect_status = 0;
+        this.update();
     }
 
     event click $(#setup-server) () {
@@ -214,26 +227,22 @@ class AudioInputs: Reactor.Component {
     }
 };
 
-class Languages: Reactor.Component {
+class SupportLanguages: Reactor.Component {
     function render() {
-        var langs = [];
-        for (var lang in JSON.parse(handler.get_langs())) {
-            if (lang[0] == "en" || lang[0] == "ru") langs.push(lang);
-        }
         var me = this;
         self.timer(1ms, function() { me.toggleMenuState() });
         return <li>{translate('Language')}
-            <menu #languages key={langs.length}>
-                {langs.map(function(lang) {
-                return <li id={lang[0]}><span>{svg_checkmark}</span>{lang[1]}</li>;
-                })}
+            <menu #languages>
+                <li #en><span>{svg_checkmark}</span>English</li>
+                <li #ru><span>{svg_checkmark}</span>Русский</li>
             </menu>
         </li>;
     }
 
 
     function toggleMenuState() {
-        var cur = handler.get_local_option("lang") || "default";
+        // An unset language is English for this deliberately small menu.
+        var cur = handler.get_local_option("lang") || "en";
         var is_opt_fixed = handler.is_option_fixed("lang");
         for (var el in this.$$(menu#languages>li)) {
             var selected = cur == el.id;
@@ -247,7 +256,6 @@ class Languages: Reactor.Component {
     event click $(menu#languages>li) (_, me) {
         if (me.state.disabled) return;
         var v = me.id;
-        if (v == "default") v = default_option_lang;
         handler.set_local_option("lang", v);
         app.update();
         this.toggleMenuState();
@@ -508,62 +516,59 @@ class MyIdMenu: Reactor.Component {
     function render() {
         return <div #myid>
             {this.renderPop()}
-            ID{svg_menu}
+            ID<span .menu-btn style="cursor:pointer;display:inline-block;padding:2px 4px">{svg_menu}</span>
         </div>;
     }
 
     function renderPop() {
-        var accountLabel = handler.get_local_option("access_token") ? getAccountLabelWithHandle() : '';
         return <popup>
             <menu.context #config-options>
-                {!disable_settings && <li #enable-keyboard><span>{svg_checkmark}</span>{translate('Enable keyboard/mouse')}</li>}
-                {!disable_settings && <li #enable-clipboard><span>{svg_checkmark}</span>{translate('Enable clipboard')}</li>}
-                {!disable_settings && <li #enable-file-transfer><span>{svg_checkmark}</span>{translate('Enable file transfer')}</li>}
-                {!disable_settings && <li #enable-camera><span>{svg_checkmark}</span>{translate('Enable camera')}</li>}
-                {!disable_settings && <li #enable-remote-restart><span>{svg_checkmark}</span>{translate('Enable remote restart')}</li>}
-                {!disable_settings && <li #enable-tunnel><span>{svg_checkmark}</span>{translate('Enable TCP tunneling')}</li>}
-                {!disable_settings && is_win ? <li #enable-block-input><span>{svg_checkmark}</span>{translate('Enable blocking user input')}</li> : ""}
-                {!disable_settings && <li #enable-lan-discovery><span>{svg_checkmark}</span>{translate('Enable LAN discovery')}</li>}
-                <Languages />
-                <li #about>{translate('About')} {" "}{handler.get_app_name()}</li>
+                <SupportLanguages />
+                <div .separator />
+                <li #about>{translate('About iRidiDesk')}</li>
             </menu>
         </popup>;
     }
 
     event click $(svg#menu) (_, me) {
-        this.showSettingMenu();
+        this.showSettingMenu(me);
     }
 
-    function showSettingMenu() {
+    event click $(span.menu-btn) (_, me) {
+        this.showSettingMenu(me);
+    }
+
+    function showSettingMenu(anchor=null) {
+        if (is_osx) {
+            this.showSupportMenu();
+            return;
+        }
         var menu = this.$(menu#config-options);
-        var anchor = this.$(svg#menu);
-        if (!menu || !anchor) return;
-        anchor.popup(menu);
-        self.timer(1ms, function() { myIdMenu.toggleMenuState(); });
+        if (!anchor) anchor = this.$(svg#menu) || this.$(span.menu-btn) || $(#myid);
+        if (anchor && menu) anchor.popup(menu, 2);
     }
 
     function toggleMenuState() {
-        for (var el in $$(menu#config-options>li)) {
-            var id = el.id;
-            if (!id) continue;
-            var is_opt_fixed = handler.is_option_fixed(id);
-            if (id.indexOf("enable-") == 0) {
-                var enabled = handler.get_option(id) != "N";
-                el.attributes.toggleClass("selected", enabled);
-                el.attributes.toggleClass("line-through", !enabled);
-            } else if (id.indexOf("allow-") == 0) {
-                var enabled = handler.get_option(id) == "Y";
-                el.attributes.toggleClass("selected", enabled);
-                el.attributes.toggleClass("line-through", !enabled);
-            } else if (id == "whitelist") {
-                // whitelist should be clickable even when fixed (to view the content)
-                // The dialog will show readonly textarea and no OK button when fixed
-                continue;
-            }
-            if (is_opt_fixed) {
-                el.state.disabled = true;
-            }
-        }
+        // This menu intentionally has no optional device or account controls.
+    }
+
+    function showSupportMenu() {
+        var me = this;
+        msgbox("iridi-menu-nocancel-nook-hasclose", translate('iRidiDesk'),
+            "<div .iridi-options>" +
+            "<div #language-en .link .custom-event>English</div>" +
+            "<div #language-ru .link .custom-event>Русский</div>" +
+            "<div #about .link .custom-event>" + translate('About iRidiDesk') + "</div>" +
+            "</div>", "", function(el) {
+                if (!el) return;
+                closeMsgbox();
+                if (el.id == 'language-en' || el.id == 'language-ru') {
+                    handler.set_local_option('lang', el.id == 'language-en' ? 'en' : 'ru');
+                    app.update();
+                } else if (el.id == 'about') {
+                    me.showAbout();
+                }
+            }, 180, get_msgbox_width());
     }
 
     function showAbout() {
@@ -726,47 +731,46 @@ class App: Reactor.Component
 
     function render() {
         var is_can_screen_recording = handler.is_can_screen_recording(false);
-        return
-            <div .app>
-                    <div .left-pane style={incoming_only ? "width:*" : ""}>
-                    <div>
-                        <div .title style="flow:horizontal; position:relative; height:1.6em; line-height:1.6em">
-                            <span>{translate('iridi_main_title')}</span>
-                        </div>
-                        <div .lighter-text>{outgoing_only ? translate('outgoing_only_desk_tip') : translate('desk_tip')}</div>
-                        {outgoing_only ? <div style="position:absolute; left:-10000px; top:-10000px; width:0; height:0; overflow:hidden"><MyIdMenu /></div> : ""}
-                        {!outgoing_only && <div .your-desktop>
-                            <MyIdMenu />
-                            {key_confirmed ? <input type="text" readonly value={formatId(get_id())}/> : translate("Generating ...")}
-                        </div>}
-                        {!outgoing_only && <PasswordArea />}
+        return <div .app>
+            <div .left-pane style={incoming_only ? "width:*" : ""}>
+                <div .main-content>
+                    <div .title style="flow:horizontal; position:relative; height:1.6em; line-height:1.6em">
+                        <span>{translate('iridi_main_title')}</span>
                     </div>
+                    <div .lighter-text>{outgoing_only ? translate('outgoing_only_desk_tip') : translate('desk_tip')}</div>
+                    <div .your-desktop>
+                        <MyIdMenu />
+                        {get_id() ? <input type="text" readonly value={formatId(get_id())}/> : translate("Generating ...")}
+                    </div>
+                    <PasswordArea />
                     {(!is_win || handler.is_installed() || disable_installation) ? "" : <InstallMe />}
                     {software_update_url && !disable_installation ? <UpdateMe /> : ""}
                     {is_win && handler.is_installed() && !software_update_url && handler.is_installed_lower_version() && !disable_installation ? <UpgradeMe /> : ""}
-                    {is_can_screen_recording ? "": <CanScreenRecording />}
-                    {is_can_screen_recording && !handler.is_process_trusted(false) ? <TrustMe /> : ""}
-                    {!service_stopped && is_can_screen_recording && handler.is_process_trusted(false) && handler.is_installed() && !handler.is_installed_daemon(false) ? <InstallDaemon /> : ""}
+                    {!screen_recording_allowed ? <CanScreenRecording /> : ""}
+                    {screen_recording_allowed && !accessibility_allowed ? <TrustMe /> : ""}
+                    {!incoming_only && !service_stopped && is_can_screen_recording && handler.is_process_trusted(false) && handler.is_installed() && !handler.is_installed_daemon(false) ? <InstallDaemon /> : ""}
                     {system_error ? <SystemError /> : ""}
                     {!system_error && handler.is_login_wayland() && !handler.current_is_wayland() ? <FixWayland /> : ""}
                     {!system_error && handler.current_is_wayland() ? <ModifyDefaultLogin /> : ""}
                 </div>
-                <div .right-pane>
-                    <div .right-content>
-                        <div .card-connect>
-                            <div .title>{translate('Control Remote Desktop')}</div>
-                            <ID @{this.remote_id} />
-                            <div .right-buttons>
-                                <button .button .outline #file-transfer>{translate('Transfer file')}</button>
-                                <button .button #connect>{translate('Connect')}</button>
-                            </div>
+                {incoming_only ? <ConnectStatus @{this.connect_status} /> : ""}
+            </div>
+            {!incoming_only && <div .right-pane>
+                <div .right-content>
+                    <div .card-connect>
+                        <div .title>{translate('Control Remote Desktop')}</div>
+                        <ID @{this.remote_id} />
+                        <div .right-buttons>
+                            <button .button .outline #file-transfer>{translate('Transfer file')}</button>
+                            <button .button #connect>{translate('Connect')}</button>
                         </div>
-                        <MultipleSessions @{this.multipleSessions} />
                     </div>
-                    {!outgoing_only ? <ConnectStatus @{this.connect_status} /> : ""}
+                    <MultipleSessions @{this.multipleSessions} />
                 </div>
-                <div #overlay style="position: absolute;size:*;background:black;opacity:0.5;display:none" />
-            </div>; 
+                {!outgoing_only ? <ConnectStatus @{this.connect_status} /> : ""}
+            </div>}
+            <div #overlay style="position: absolute;size:*;background:black;opacity:0.5;display:none" />
+        </div>;
     }
 
     event click $(button#connect) {
@@ -887,10 +891,9 @@ class SystemError: Reactor.Component {
 class TrustMe: Reactor.Component {
     function render() {
         return <div .trust-me #trust-me-box>
-            <div>{translate('Permissions')}</div>
-            <div>{translate('config_acc')}</div>
+            <div>{translate('iridi_permission_accessibility_title')}</div>
+            <div>{translate('iridi_permission_accessibility_text')}</div>
             <div #trust-me .link>{translate('Configure')}</div>
-            <div #help-me .link>{translate('Help')}</div>
         </div>;
     }
 
@@ -907,10 +910,9 @@ class TrustMe: Reactor.Component {
 class CanScreenRecording: Reactor.Component {
     function render() {
         return <div .trust-me #screen-recording-box>
-            <div>{translate('Permissions')}</div>
-            <div>{translate('config_screen')}</div>
+            <div>{translate('iridi_permission_screen_title')}</div>
+            <div>{translate('iridi_permission_screen_text')}</div>
             <div #screen-recording .link>{translate('Configure')}</div>
-            <div #help-me .link>{translate('Help')}</div>
         </div>;
     }
 
@@ -967,34 +969,21 @@ class ModifyDefaultLogin: Reactor.Component {
 }
 
 function watch_trust() {
-    // not use TrustMe::update, because it is buggy
     var trusted = handler.is_process_trusted(false);
-    var el = $(div#trust-me-box);
-    if (el) {
-        el.style.set {
-            display: trusted ? "none" : "block",
-        };
-    }
-    if (trusted) {
+    if (accessibility_allowed != trusted) {
+        accessibility_allowed = trusted;
         app.update();
-        return;
     }
-    self.timer(1s, watch_trust);
+    if (!trusted) self.timer(1s, watch_trust);
 }
 
 function watch_screen_recording() {
     var trusted = handler.is_can_screen_recording(false);
-    var el = $(div#screen-recording-box);
-    if (el) {
-        el.style.set {
-            display: trusted ? "none" : "block",
-        };
-    }
-    if (trusted) {
+    if (screen_recording_allowed != trusted) {
+        screen_recording_allowed = trusted;
         app.update();
-        return;
     }
-    self.timer(1s, watch_screen_recording);
+    if (!trusted) self.timer(1s, watch_screen_recording);
 }
 
 class PasswordEyeArea : Reactor.Component {
@@ -1003,11 +992,10 @@ class PasswordEyeArea : Reactor.Component {
         var mode= handler.get_option('approve-mode');
         var hide_one_time = mode == 'click' ||  method == 'use-permanent-password';
         var value = hide_one_time ? "-" : password_cache[0];
-        return
-            <div .eye-area style="width: *">
-                <input|text @{this.input} readonly value={value} />
-                {hide_one_time ? "" : svg_refresh_password}
-            </div>;
+        return <div .eye-area style="width: *">
+            <input|text @{this.input} readonly value={value} />
+            {hide_one_time ? "" : svg_refresh_password}
+        </div>;
     }
 
     event click $(svg#refresh-password) (_, me) {
@@ -1071,13 +1059,12 @@ class PasswordArea: Reactor.Component {
     function render() {
         var me = this;
         self.timer(1ms, function() { me.toggleMenuState() });
-        return 
-        <div .your-desktop>
+        return <div .your-desktop>
             <div>{translate('One-time Password')}</div>
             <div .password style="flow:horizontal">
                 {this.renderPop()}
                 <PasswordEyeArea />
-                {svg_edit}
+                <span .edit-btn style="cursor:pointer;padding:2px 4px;display:inline-block">{svg_edit}</span>
             </div>
         </div>;
     }
@@ -1134,17 +1121,100 @@ class PasswordArea: Reactor.Component {
     }
 
     event click $(svg#edit) (_, me) {
-        var approve_mode= handler.get_option('approve-mode');
+        if (is_osx) {
+            this.showPasswordOptions();
+            return;
+        }
+        var approve_mode = handler.get_option('approve-mode');
         var show_password = approve_mode != 'click';
+        if (show_password && temporaryPasswordLengthMenu) temporaryPasswordLengthMenu.update({ show: true });
+        this.toggleMenuState();
         var menu = this.$(menu#edit-password-context);
-        if (!menu) return;
-        me.popup(menu);
-        self.timer(1ms, function() {
-            if (show_password && temporaryPasswordLengthMenu) temporaryPasswordLengthMenu.update({show: true });
-        });
+        var anchor = this.$(span.edit-btn) || me;
+        if (menu) anchor.popup(menu, 2);
     }
 
-    event click $(li#set-password) {
+    event click $(span.edit-btn) (_, me) {
+        if (is_osx) {
+            this.showPasswordOptions();
+            return;
+        }
+        var approve_mode = handler.get_option('approve-mode');
+        var show_password = approve_mode != 'click';
+        if (show_password && temporaryPasswordLengthMenu) temporaryPasswordLengthMenu.update({ show: true });
+        this.toggleMenuState();
+        var menu = this.$(menu#edit-password-context);
+        if (menu) me.popup(menu, 2);
+    }
+
+    function showPasswordOptions() {
+        var me = this;
+        msgbox("iridi-menu-nocancel-nook-hasclose", translate('Password'),
+            "<div .iridi-options>" +
+            "<div #set-password .link .custom-event>" + translate('Set permanent password') + "</div>" +
+            "<div #refresh-password .link .custom-event>" + translate('Refresh Password') + "</div>" +
+            "<div #approve-mode .link .custom-event>" + translate('iridi_acceptance_method') + "</div>" +
+            "<div #verification-method .link .custom-event>" + translate('iridi_verification_method') + "</div>" +
+            "<div #temporary-length .link .custom-event>" + translate('One-time password length') + "</div>" +
+            "<div #tfa .link .custom-event>" + translate('enable-2fa-title') + "</div>" +
+            "</div>", "", function(el) {
+                if (!el) return;
+                closeMsgbox();
+                if (el.id == 'set-password') me.showSetPasswordDialog();
+                else if (el.id == 'refresh-password') {
+                    handler.update_temporary_password();
+                    passwordArea.update();
+                } else if (el.id == 'approve-mode') me.showApproveModeDialog();
+                else if (el.id == 'verification-method') me.showVerificationMethodDialog();
+                else if (el.id == 'temporary-length') me.showTemporaryLengthDialog();
+                else if (el.id == 'tfa') me.configureTwoFactor();
+            }, 290, get_msgbox_width());
+    }
+
+    function showApproveModeDialog() {
+        var me = this;
+        msgbox("iridi-menu-nocancel-nook-hasclose", translate('iridi_acceptance_method'),
+            "<div .iridi-options>" +
+            "<div #password .link .custom-event>" + translate('Accept sessions via password') + "</div>" +
+            "<div #click .link .custom-event>" + translate('Accept sessions via click') + "</div>" +
+            "<div #both .link .custom-event>" + translate('Accept sessions via both') + "</div>" +
+            "</div>", "", function(el) {
+                if (!el) return;
+                handler.set_option('approve-mode', el.id == 'password' ? 'password' : (el.id == 'click' ? 'click' : default_option_approve_mode));
+                passwordArea.update();
+                closeMsgbox();
+            }, 160, get_msgbox_width());
+    }
+
+    function showVerificationMethodDialog() {
+        var me = this;
+        msgbox("iridi-menu-nocancel-nook-hasclose", translate('iridi_verification_method'),
+            "<div .iridi-options>" +
+            "<div #use-temporary-password .link .custom-event>" + translate('Use one-time password') + "</div>" +
+            "<div #use-permanent-password .link .custom-event>" + translate('Use permanent password') + "</div>" +
+            "<div #use-both-passwords .link .custom-event>" + translate('Use both passwords') + "</div>" +
+            "</div>", "", function(el) {
+                if (!el) return;
+                handler.set_option('verification-method', el.id);
+                passwordArea.update();
+                closeMsgbox();
+            }, 160, get_msgbox_width());
+    }
+
+    function showTemporaryLengthDialog() {
+        var me = this;
+        msgbox("iridi-menu-nocancel-nook-hasclose", translate('One-time password length'),
+            "<div .iridi-options><div #6 .link .custom-event>6</div><div #8 .link .custom-event>8</div><div #10 .link .custom-event>10</div></div>",
+            "", function(el) {
+                if (!el) return;
+                handler.set_option('temporary-password-length', el.id);
+                handler.update_temporary_password();
+                passwordArea.update();
+                closeMsgbox();
+            }, 150, get_msgbox_width());
+    }
+
+    function showSetPasswordDialog() {
         var me = this;
         var password = handler.permanent_password();
         var value_field = password.length == 0 ? "" : "value=" + password;
@@ -1167,6 +1237,10 @@ class PasswordArea: Reactor.Component {
         }, msgbox_default_height, get_msgbox_width());
     }
 
+    event click $(li#set-password) {
+        this.showSetPasswordDialog();
+    }
+
     event click $(menu#edit-password-context>li) (_, me) {
         if (me.state.disabled) return;
         if (me.id.indexOf('use-') == 0) {
@@ -1187,7 +1261,7 @@ class PasswordArea: Reactor.Component {
         }
     }
 
-    event click $(li#tfa) {
+    function configureTwoFactor() {
         var me = this;
         var has_valid_2fa = handler.has_valid_2fa();
         if (has_valid_2fa) {
@@ -1211,6 +1285,10 @@ class PasswordArea: Reactor.Component {
                 me.update();
             }, 400, get_msgbox_width());
         }
+    }
+
+    event click $(li#tfa) {
+        this.configureTwoFactor();
     }
 }
 
@@ -1326,10 +1404,10 @@ function self.ready() {
         if (r[2] >= sw && r[3] >= sh) {
             self.timer(1ms, function() { view.windowState = View.WINDOW_MAXIMIZED; });
         } else {
-            view.move(r[0], r[1], incoming_only ? scaleIt(incoming_only_width) : r[2], r[3]);
+            view.move(r[0], r[1], incoming_only ? scaleIt(incoming_only_width) : r[2], incoming_only && is_osx ? scaleIt(390) : r[3]);
         }
     } else {
-        centerize(scaleIt(incoming_only ? incoming_only_width : 800), scaleIt(incoming_only ? 390 : 600));
+        centerize(scaleIt(incoming_only ? incoming_only_width : 800), scaleIt(incoming_only && is_osx ? 390 : (incoming_only ? 420 : 600)));
     }
     if (!handler.get_remote_id()) {
         view.focus = $(#remote_id);
@@ -1349,11 +1427,7 @@ function showSettings() {
     if (!anchor) anchor = myIdMenu.$(svg#menu);
     // show immediately at button, then update menu state asynchronously
     anchor.popup(menu);
-    self.timer(1ms, function() {
-        audioInputMenu.update({ show: true });
-        myIdMenu.toggleMenuState();
-        if (direct_server) direct_server.update();
-    });
+    self.timer(1ms, function() { myIdMenu.toggleMenuState(); });
 }
 
 function checkConnectStatus() {
@@ -1398,10 +1472,14 @@ function checkConnectStatus() {
             updateAbPeer();
             app.update();
         }
-        tmp = handler.get_option("disable-udp") == "Y";
-        if (tmp != disable_udp) {
-            disable_udp = tmp;
-            app.update();
+        if (!is_win) {
+            var screen_ok = handler.is_can_screen_recording(false);
+            var trust_ok = handler.is_process_trusted(false);
+            if (screen_recording_allowed != screen_ok || accessibility_allowed != trust_ok) {
+                screen_recording_allowed = screen_ok;
+                accessibility_allowed = trust_ok;
+                app.update();
+            }
         }
         check_if_overlay();
         checkConnectStatus();    
