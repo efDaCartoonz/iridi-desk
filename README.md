@@ -20,9 +20,12 @@ address book, terminal, or installation settings in its support interface.
 
 ## macOS 1.0.1
 
+iRidiDesk 1.0.1 is supported and recommended on **macOS 13 Ventura or newer**.
 The current macOS package is a Universal application for both Apple Silicon
 (`arm64`) and Intel (`x86_64`) Macs. The application bundle includes the
-iRidiDesk icon and macOS metadata.
+iRidiDesk icon and macOS metadata. Older macOS releases may start when their
+hardware supports the included architecture, but they are not a supported
+release configuration.
 
 ### Install and connect
 
