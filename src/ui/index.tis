@@ -4,12 +4,11 @@ stdout.println("is_xfce: ", is_xfce);
 
 // See default height in common.tis `msgbox()`.
 const msgbox_default_height = 180;
-const incoming_only_width = 180;
+const incoming_only_width = 560;
 
-// The thin client receives support sessions only. Keep the normal RustDesk
-// connection dashboard out of the interface while the backend rejects every
-// outgoing connection attempt.
-const outgoing_only = handler.is_incoming_only();
+// The backend rejects outgoing connections for this thin client. Keep the
+// local support credentials visible so the user can give them to support.
+const outgoing_only = false;
 const incoming_only = handler.is_incoming_only();
 const disable_installation = handler.is_disable_installation();
 const disable_account = handler.is_disable_account();
@@ -25,6 +24,7 @@ const disable_change_id = handler.get_builtin_option("disable-change-id") == "Y"
 // html min-width, min-height not working on mac, below works for all
 if (incoming_only) {
   view.windowMinSize = (scaleIt(incoming_only_width), scaleIt((handler.is_installed() || disable_installation) ? 300 : 390));
+  view.windowMaxSize = (scaleIt(incoming_only_width), scaleIt((handler.is_installed() || disable_installation) ? 300 : 390));
 } else {
   view.windowMinSize = (scaleIt(560), scaleIt(300));
 }
@@ -216,13 +216,14 @@ class AudioInputs: Reactor.Component {
 
 class Languages: Reactor.Component {
     function render() {
-        var langs = JSON.parse(handler.get_langs());
+        var langs = [];
+        for (var lang in JSON.parse(handler.get_langs())) {
+            if (lang[0] == "en" || lang[0] == "ru") langs.push(lang);
+        }
         var me = this;
         self.timer(1ms, function() { me.toggleMenuState() });
         return <li>{translate('Language')}
             <menu #languages key={langs.length}>
-                <li id="default"><span>{svg_checkmark}</span>Default</li>
-                <div .separator />
                 {langs.map(function(lang) {
                 return <li id={lang[0]}><span>{svg_checkmark}</span>{lang[1]}</li>;
                 })}
@@ -523,10 +524,7 @@ class MyIdMenu: Reactor.Component {
                 {!disable_settings && <li #enable-tunnel><span>{svg_checkmark}</span>{translate('Enable TCP tunneling')}</li>}
                 {!disable_settings && is_win ? <li #enable-block-input><span>{svg_checkmark}</span>{translate('Enable blocking user input')}</li> : ""}
                 {!disable_settings && <li #enable-lan-discovery><span>{svg_checkmark}</span>{translate('Enable LAN discovery')}</li>}
-                <AudioInputs />
-                <Enhancements />
-                <div .separator />
-<Languages />
+                <Languages />
                 <li #about>{translate('About')} {" "}{handler.get_app_name()}</li>
             </menu>
         </popup>;
@@ -537,11 +535,11 @@ class MyIdMenu: Reactor.Component {
     }
 
     function showSettingMenu() {
-        audioInputMenu.update({ show: true });
-        this.toggleMenuState();
-        if (direct_server) direct_server.update();
         var menu = this.$(menu#config-options);
-        this.$(svg#menu).popup(menu);
+        var anchor = this.$(svg#menu);
+        if (!menu || !anchor) return;
+        anchor.popup(menu);
+        self.timer(1ms, function() { myIdMenu.toggleMenuState(); });
     }
 
     function toggleMenuState() {
@@ -752,9 +750,8 @@ class App: Reactor.Component
                     {system_error ? <SystemError /> : ""}
                     {!system_error && handler.is_login_wayland() && !handler.current_is_wayland() ? <FixWayland /> : ""}
                     {!system_error && handler.current_is_wayland() ? <ModifyDefaultLogin /> : ""}
-                    {incoming_only ? <ConnectStatus @{this.connect_status} /> : ""}
                 </div>
-                {!incoming_only && <div .right-pane>
+                <div .right-pane>
                     <div .right-content>
                         <div .card-connect>
                             <div .title>{translate('Control Remote Desktop')}</div>
@@ -767,7 +764,7 @@ class App: Reactor.Component
                         <MultipleSessions @{this.multipleSessions} />
                     </div>
                     {!outgoing_only ? <ConnectStatus @{this.connect_status} /> : ""}
-                </div>}
+                </div>
                 <div #overlay style="position: absolute;size:*;background:black;opacity:0.5;display:none" />
             </div>; 
     }
@@ -1080,7 +1077,7 @@ class PasswordArea: Reactor.Component {
             <div .password style="flow:horizontal">
                 {this.renderPop()}
                 <PasswordEyeArea />
-                {!disable_settings && svg_edit}
+                {svg_edit}
             </div>
         </div>;
     }
@@ -1139,9 +1136,12 @@ class PasswordArea: Reactor.Component {
     event click $(svg#edit) (_, me) {
         var approve_mode= handler.get_option('approve-mode');
         var show_password = approve_mode != 'click';
-        if(show_password && temporaryPasswordLengthMenu) temporaryPasswordLengthMenu.update({show: true });
-        var menu = $(menu#edit-password-context);        
+        var menu = this.$(menu#edit-password-context);
+        if (!menu) return;
         me.popup(menu);
+        self.timer(1ms, function() {
+            if (show_password && temporaryPasswordLengthMenu) temporaryPasswordLengthMenu.update({show: true });
+        });
     }
 
     event click $(li#set-password) {

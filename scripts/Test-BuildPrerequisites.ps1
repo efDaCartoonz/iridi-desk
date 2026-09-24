@@ -30,7 +30,7 @@ function Find-CommandPath {
     return $null
 }
 
-Write-Host 'iRidiDesk: проверка среды сборки (сборка не запускается)' -ForegroundColor Cyan
+Write-Host 'iRidiDesk: build environment check (no build is started)' -ForegroundColor Cyan
 Write-Host "Project: $projectRoot"
 Write-Host ''
 
@@ -83,7 +83,7 @@ else {
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vsInstallations = @()
 if (Test-Path -LiteralPath $vswhere) {
-    $vsInstallations = @(& $vswhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json)
+    $vsInstallations = @((& $vswhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | Out-String | ConvertFrom-Json))
 }
 
 if ($vsInstallations.Count -eq 0) {
@@ -110,12 +110,16 @@ else {
     }
 }
 
-$releaseScriptVsPath = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat'
+$releaseScriptVsPath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$releaseScriptVs = @()
 if (Test-Path -LiteralPath $releaseScriptVsPath) {
-    Add-Check 'Release script compatibility' 'OK' 'The current release script can find Visual Studio Build Tools.'
+    $releaseScriptVs = @((& $releaseScriptVsPath -products * -version '[17.0,18.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | Out-String | ConvertFrom-Json))
+}
+if ($releaseScriptVs.Count -gt 0) {
+    Add-Check 'Release script compatibility' 'OK' 'The release script can locate Visual Studio 2022 through vswhere.'
 }
 else {
-    Add-Check 'Release script compatibility' 'WARNING' 'C++ tools exist, but the current release script expects Visual Studio 2022 Build Tools at its default path. Send this report before building.'
+    Add-Check 'Release script compatibility' 'WARNING' 'C++ tools exist, but no compatible Visual Studio 2022 installation was found by vswhere. Send this report before building.'
 }
 
 $sdkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
@@ -128,6 +132,23 @@ if ($sdk) {
 }
 else {
     Add-Check 'Windows SDK' 'MISSING' 'Install a Windows 10 or Windows 11 SDK through Visual Studio Installer.'
+}
+
+$vcpkgRoot = $env:VCPKG_ROOT
+$libsodium = if ($vcpkgRoot) { Join-Path $vcpkgRoot 'installed\x86-windows-static\lib\libsodium.lib' }
+if ($libsodium -and (Test-Path -LiteralPath $libsodium)) {
+    Add-Check 'x86 static libsodium' 'OK' 'Found through VCPKG_ROOT.'
+}
+else {
+    Add-Check 'x86 static libsodium' 'MISSING' 'Set VCPKG_ROOT and provide installed\x86-windows-static\lib\libsodium.lib.'
+}
+
+$sciterRuntime = Join-Path $projectRoot 'third_party\sciter\win32\sciter.dll'
+if (Test-Path -LiteralPath $sciterRuntime) {
+    Add-Check 'x86 Sciter runtime' 'OK' 'Found local sciter.dll for the release package.'
+}
+else {
+    Add-Check 'x86 Sciter runtime' 'MISSING' 'Download the x86 sciter.dll to third_party\sciter\win32 before building.'
 }
 
 $envFile = Join-Path $projectRoot '.env'

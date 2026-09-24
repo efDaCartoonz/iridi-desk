@@ -1663,7 +1663,8 @@ fn cm_inner_send(id: i32, data: Data) {
 
 pub fn can_elevate() -> bool {
     #[cfg(windows)]
-    return !crate::platform::is_installed();
+    return !crate::platform::is_installed()
+        && !crate::platform::is_elevated(None).unwrap_or(false);
     #[cfg(not(windows))]
     return false;
 }

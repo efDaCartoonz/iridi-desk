@@ -27,6 +27,11 @@ foreach ($name in $required) {
     }
 }
 
+$sciterRuntime = Join-Path $projectRoot 'third_party\sciter\win32\sciter.dll'
+if (-not (Test-Path -LiteralPath $sciterRuntime)) {
+    throw 'The x86 Sciter runtime is required at third_party\sciter\win32\sciter.dll before building a release package.'
+}
+
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     throw 'Rust toolchain is required. Install Rust, then add i686-pc-windows-msvc with rustup.'
 }
@@ -39,24 +44,40 @@ $env:Path = (Split-Path -Parent $gitCommand) + ';' + $env:Path
 
 Push-Location $projectRoot
 try {
-    $vcVars = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat'
-    if (-not (Test-Path -LiteralPath $vcVars)) {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (-not (Test-Path -LiteralPath $vswhere)) {
         throw 'Microsoft C++ Build Tools are required for the Windows linker.'
     }
-    $msvcRoot = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC'
-    $msvc = Get-ChildItem $msvcRoot -Directory -ErrorAction SilentlyContinue |
-        Where-Object {
-            (Test-Path (Join-Path $_.FullName 'lib\x64\msvcrt.lib')) -and
-            (Test-Path (Join-Path $_.FullName 'lib\x86\msvcrt.lib'))
-        } |
-        Sort-Object Name -Descending |
-        Select-Object -First 1
+    $vsInstallations = @((& $vswhere -products * -version '[17.0,18.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | Out-String | ConvertFrom-Json))
+    $msvc = $null
+    $vcVars = $null
+    foreach ($vs in $vsInstallations) {
+        $candidateVcVars = Join-Path $vs.installationPath 'VC\Auxiliary\Build\vcvarsall.bat'
+        $candidateMsvc = Get-ChildItem (Join-Path $vs.installationPath 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+            Where-Object {
+                (Test-Path (Join-Path $_.FullName 'lib\x64\msvcrt.lib')) -and
+                (Test-Path (Join-Path $_.FullName 'lib\x86\msvcrt.lib'))
+            } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+        if ((Test-Path -LiteralPath $candidateVcVars) -and $candidateMsvc) {
+            $vcVars = $candidateVcVars
+            $msvc = $candidateMsvc
+            break
+        }
+    }
     if ($null -eq $msvc) {
         throw 'Install the MSVC v143 C++ x64/x86 build tools component before building.'
     }
+    $vcpkgRoot = $env:VCPKG_ROOT
+    $libsodium = if ($vcpkgRoot) { Join-Path $vcpkgRoot 'installed\x86-windows-static\lib\libsodium.lib' }
+    if ([string]::IsNullOrWhiteSpace($vcpkgRoot) -or -not (Test-Path -LiteralPath $libsodium)) {
+        throw 'The x86 static libsodium library is required at %VCPKG_ROOT%\installed\x86-windows-static\lib\libsodium.lib.'
+    }
     $env:IRIDI_VCVARS_VERSION = ($msvc.Name.Split('.')[0..1] -join '.')
     $env:CARGO_TARGET_I686_PC_WINDOWS_MSVC_LINKER = Join-Path $PSScriptRoot 'link-i686.cmd'
-    cmd.exe /d /s /c "call `"$vcVars`" x64 -vcvars_ver=$env:IRIDI_VCVARS_VERSION >nul && cargo +stable-x86_64-pc-windows-msvc build --release --target i686-pc-windows-msvc"
+    $cargoCommand = 'call "' + $vcVars + '" x64 -vcvars_ver=' + $env:IRIDI_VCVARS_VERSION + ' >nul && set "VCPKG_ROOT=' + $vcpkgRoot + '" && cargo +stable-x86_64-pc-windows-msvc build --release --target i686-pc-windows-msvc'
+    cmd.exe /d /s /c $cargoCommand
     if ($LASTEXITCODE -ne 0) {
         throw "Cargo build failed with exit code $LASTEXITCODE"
     }
@@ -69,8 +90,10 @@ try {
     New-Item -ItemType Directory -Path $package -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $source 'rustdesk.exe') -Destination (Join-Path $package 'iRidiDesk.exe')
     Copy-Item -LiteralPath (Join-Path $source 'service.exe') -Destination $package
-    Copy-Item -LiteralPath (Join-Path $source 'sciter.dll') -Destination $package
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'src\ui') -Destination $package -Recurse
+    Copy-Item -LiteralPath $sciterRuntime -Destination $package
+    $uiDestinationRoot = Join-Path $package 'src'
+    New-Item -ItemType Directory -Path $uiDestinationRoot -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'src\ui') -Destination $uiDestinationRoot -Recurse
 
     Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
     Compress-Archive -LiteralPath (Join-Path $package '*') -DestinationPath $archive -CompressionLevel Optimal
