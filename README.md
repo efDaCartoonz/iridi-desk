@@ -18,6 +18,16 @@ desktop client.
 The client does not expose outgoing connections, server or proxy settings,
 address book, terminal, or installation settings in its support interface.
 
+## Windows 1.0.1 (64-bit & 32-bit)
+
+iRidiDesk 1.0.1 is available for Windows 10, 11, and Windows Server in both 64-bit (`x64`) and 32-bit (`x86`) packages.
+
+### Install and connect
+
+1. Extract the release ZIP (`iRidiDesk-1.0.1-win64.zip` or `iRidiDesk-1.0.1-win32.zip`).
+2. Run `iRidiDesk.exe`.
+3. Provide the displayed device ID and one-time password to your support specialist.
+
 ## macOS 1.0.1
 
 iRidiDesk 1.0.1 is supported and recommended on **macOS 13 Ventura or newer**.
@@ -50,8 +60,21 @@ Production connection parameters are supplied only at build time through a
 local, ignored `.env` file. Do not commit that file or production values.
 
 Detailed Windows and macOS build instructions, prerequisites, and output names
-are in [BUILDING-iRidiDesk.md](BUILDING-iRidiDesk.md). To create the macOS
-Universal package:
+are in [BUILDING-iRidiDesk.md](BUILDING-iRidiDesk.md).
+
+### Windows build (PowerShell)
+
+```powershell
+# 64-bit build (default):
+.\scripts\build-release.ps1 -Version 1.0.1 -Arch x64
+
+# 32-bit build:
+.\scripts\build-release.ps1 -Version 1.0.1 -Arch x86
+```
+
+Output packages are placed in `dist/` (e.g. `dist/iRidiDesk-1.0.1-win64.zip`).
+
+### macOS build (Bash)
 
 ```bash
 ./scripts/build-macos.sh 1.0.1 universal
@@ -71,4 +94,4 @@ See also:
 - [NOTICE-iRidiDesk.txt](NOTICE-iRidiDesk.txt)
 - [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
 - [SOURCE-OFFER.txt](SOURCE-OFFER.txt)
-- [iRidiDesk source repository](https://github.com/efDaCartoonz/iridi-desk)
+- [iRidiDesk source repository](https://github.com/efDaCartoonz/irididesk)

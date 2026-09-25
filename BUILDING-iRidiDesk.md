@@ -18,24 +18,49 @@ cp .env.example .env
 
 Do not commit production .env files.
 
-## Windows x86 release build
+## Windows Release Builds (x64 and x86)
 
-Install the Rust toolchain once, including the 32-bit MSVC target:
+### Prerequisites
 
-```bash
-rustup toolchain install stable-x86_64-pc-windows-msvc --force-non-host
-rustup target add i686-pc-windows-msvc --toolchain stable-x86_64-pc-windows-msvc
-```
+1. Install the Rust toolchain with MSVC targets:
+   ```bash
+   rustup toolchain install stable-x86_64-pc-windows-msvc
+   rustup target add x86_64-pc-windows-msvc i686-pc-windows-msvc
+   ```
 
-On an ARM64 build computer, the script intentionally uses the x64 Rust toolchain through Windows' built-in x64 emulation: RustDesk's bundled build dependencies include x64-only libraries. Install **Desktop development with C++** and the **MSVC v143 – VS 2022 C++ x64/x86 build tools** component. The final package remains x86 (32-bit).
+2. Install **Desktop development with C++** and **MSVC v143 – VS 2022 C++ x64/x86 build tools** via Visual Studio Installer.
 
-Then create the local release archive from PowerShell:
+3. Install static C/C++ dependencies via vcpkg:
+   ```bash
+   vcpkg install libsodium:x64-windows-static libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static libjpeg-turbo:x64-windows-static
+   vcpkg install libsodium:x86-windows-static libvpx:x86-windows-static libyuv:x86-windows-static opus:x86-windows-static aom:x86-windows-static libjpeg-turbo:x86-windows-static
+   ```
+
+4. Verify build readiness:
+   ```powershell
+   .\scripts\Test-BuildPrerequisites.ps1
+   ```
+
+### Building release packages
+
+Build from PowerShell:
 
 ```powershell
-.\scripts\build-release.ps1 -Version 1.0.2
+# 64-bit Windows release (default)
+.\scripts\build-release.ps1 -Version 1.0.1 -Arch x64
+
+# 32-bit Windows release
+.\scripts\build-release.ps1 -Version 1.0.1 -Arch x86
+
+# Or build both architectures
+.\scripts\build-release.ps1 -Version 1.0.1 -Arch all
 ```
 
-The command builds `iRidiDesk.exe`, packages the required service, Sciter runtime and UI files, and produces `dist/iRidiDesk-<version>-win32.zip`. The `.env` file stays local and is never packaged or committed.
+The script builds `iRidiDesk.exe`, packages the service, Sciter runtime and UI files, producing:
+- `dist/iRidiDesk-1.0.1-win64.zip`
+- `dist/iRidiDesk-1.0.1-win32.zip`
+
+The `.env` file stays local and is never packaged or committed.
 
 ## macOS Release Build (Apple Silicon ARM64, Intel x86_64, Universal)
 

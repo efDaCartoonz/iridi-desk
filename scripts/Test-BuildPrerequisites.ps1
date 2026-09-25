@@ -1,5 +1,5 @@
 <#
-    Read-only diagnostic for building the 32-bit iRidiDesk release on Windows.
+    Read-only diagnostic for building the iRidiDesk release on Windows (x64 and x86).
     It does not download, install, modify, or compile anything.
 #>
 
@@ -62,6 +62,13 @@ if ($rustup -and $cargo) {
     if ($toolchains -match [regex]::Escape($toolchain)) {
         Add-Check 'Rust x64 MSVC host toolchain' 'OK' $toolchain
         $targets = & $rustup target list --toolchain $toolchain --installed 2>&1
+        if ($targets -contains 'x86_64-pc-windows-msvc') {
+            Add-Check 'Rust x64 target' 'OK' 'x86_64-pc-windows-msvc'
+        }
+        else {
+            Add-Check 'Rust x64 target' 'MISSING' "Run: rustup target add x86_64-pc-windows-msvc --toolchain $toolchain"
+        }
+
         if ($targets -contains 'i686-pc-windows-msvc') {
             Add-Check 'Rust 32-bit target' 'OK' 'i686-pc-windows-msvc'
         }
@@ -71,12 +78,14 @@ if ($rustup -and $cargo) {
     }
     else {
         Add-Check 'Rust x64 MSVC host toolchain' 'MISSING' "Run: rustup toolchain install $toolchain"
+        Add-Check 'Rust x64 target' 'WARNING' 'Check it after installing the x64 MSVC host toolchain.'
         Add-Check 'Rust 32-bit target' 'WARNING' 'Check it after installing the x64 MSVC host toolchain.'
     }
 }
 else {
     Add-Check 'Rustup and Cargo' 'MISSING' 'Install Rust using rustup, then reopen PowerShell.'
     Add-Check 'Rust x64 MSVC host toolchain' 'WARNING' 'Cannot check until Rust is installed.'
+    Add-Check 'Rust x64 target' 'WARNING' 'Cannot check until Rust is installed.'
     Add-Check 'Rust 32-bit target' 'WARNING' 'Cannot check until Rust is installed.'
 }
 
@@ -89,7 +98,6 @@ if (Test-Path -LiteralPath $vswhere) {
 if ($vsInstallations.Count -eq 0) {
     Add-Check 'Visual Studio C++ tools' 'MISSING' 'Install the Desktop development with C++ workload, including MSVC v143 x64/x86 tools and a Windows SDK.'
 }
-
 else {
     foreach ($vs in $vsInstallations) {
         $msvcRoot = Join-Path $vs.installationPath 'VC\Tools\MSVC'
@@ -135,17 +143,37 @@ else {
 }
 
 $vcpkgRoot = $env:VCPKG_ROOT
-$libsodium = if ($vcpkgRoot) { Join-Path $vcpkgRoot 'installed\x86-windows-static\lib\libsodium.lib' }
-if ($libsodium -and (Test-Path -LiteralPath $libsodium)) {
+if ([string]::IsNullOrWhiteSpace($vcpkgRoot) -and (Test-Path 'C:\dev\vcpkg')) {
+    $vcpkgRoot = 'C:\dev\vcpkg'
+}
+
+$libsodiumX64 = if ($vcpkgRoot) { Join-Path $vcpkgRoot 'installed\x64-windows-static\lib\libsodium.lib' }
+if ($libsodiumX64 -and (Test-Path -LiteralPath $libsodiumX64)) {
+    Add-Check 'x64 static libsodium' 'OK' 'Found through VCPKG_ROOT.'
+}
+else {
+    Add-Check 'x64 static libsodium' 'MISSING' 'Run: vcpkg install libsodium:x64-windows-static'
+}
+
+$libsodiumX86 = if ($vcpkgRoot) { Join-Path $vcpkgRoot 'installed\x86-windows-static\lib\libsodium.lib' }
+if ($libsodiumX86 -and (Test-Path -LiteralPath $libsodiumX86)) {
     Add-Check 'x86 static libsodium' 'OK' 'Found through VCPKG_ROOT.'
 }
 else {
-    Add-Check 'x86 static libsodium' 'MISSING' 'Set VCPKG_ROOT and provide installed\x86-windows-static\lib\libsodium.lib.'
+    Add-Check 'x86 static libsodium' 'MISSING' 'Run: vcpkg install libsodium:x86-windows-static'
 }
 
-$sciterRuntime = Join-Path $projectRoot 'third_party\sciter\win32\sciter.dll'
-if (Test-Path -LiteralPath $sciterRuntime) {
-    Add-Check 'x86 Sciter runtime' 'OK' 'Found local sciter.dll for the release package.'
+$sciterRuntimeX64 = Join-Path $projectRoot 'third_party\sciter\win64\sciter.dll'
+if (Test-Path -LiteralPath $sciterRuntimeX64) {
+    Add-Check 'x64 Sciter runtime' 'OK' 'Found local sciter.dll for x64 release package.'
+}
+else {
+    Add-Check 'x64 Sciter runtime' 'MISSING' 'Download the x64 sciter.dll to third_party\sciter\win64 before building.'
+}
+
+$sciterRuntimeX86 = Join-Path $projectRoot 'third_party\sciter\win32\sciter.dll'
+if (Test-Path -LiteralPath $sciterRuntimeX86) {
+    Add-Check 'x86 Sciter runtime' 'OK' 'Found local sciter.dll for x86 release package.'
 }
 else {
     Add-Check 'x86 Sciter runtime' 'MISSING' 'Download the x86 sciter.dll to third_party\sciter\win32 before building.'
