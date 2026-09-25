@@ -8,6 +8,7 @@ desktop client.
 ## What the support client provides
 
 - incoming remote-control sessions, text chat, and file transfer;
+- macOS system audio capture through ScreenCaptureKit, without microphone access;
 - a compact, fixed-size support window with the device ID, one-time password,
   and connection status;
 - a password menu for a permanent password, one-time-password refresh and
@@ -47,8 +48,10 @@ release configuration.
    - **Privacy & Security → Accessibility**.
 
 Those permissions are required for a support specialist to view the screen and
-control the mouse and keyboard. The client can still be used for chat or file
-transfer when a particular permission is not granted.
+control the mouse and keyboard. Screen & System Audio Recording also allows
+sharing sounds played by the Mac. iRidiDesk does not request microphone access.
+The client can still be used for chat or file transfer when a particular
+permission is not granted.
 
 Use the three-dot button beside the device ID to change the interface language.
 Use the pencil beside the one-time password to configure password-related

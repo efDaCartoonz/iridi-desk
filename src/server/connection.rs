@@ -3742,6 +3742,10 @@ impl Connection {
     }
 
     pub async fn handle_voice_call(&mut self, accepted: bool) {
+        // This support client captures macOS system audio only. Voice calls
+        // would switch the capture source to the local microphone.
+        #[cfg(target_os = "macos")]
+        let accepted = false;
         if let Some(ts) = self.voice_call_request_timestamp.take() {
             let msg = new_voice_call_response(ts.get(), accepted);
             if accepted {

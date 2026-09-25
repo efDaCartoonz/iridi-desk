@@ -104,7 +104,7 @@ build_target() {
     local rust_target="$2"
     echo "==> Compiling for $arch ($rust_target)..."
     # The app bundle needs both the UI executable and the service helper.
-    MACOSX_DEPLOYMENT_TARGET=10.14 cargo build --release --bins --target "$rust_target" --features inline
+    MACOSX_DEPLOYMENT_TARGET=13.0 cargo build --release --bins --target "$rust_target" --features inline,screencapturekit
 }
 
 case "$TARGET_ARCH" in

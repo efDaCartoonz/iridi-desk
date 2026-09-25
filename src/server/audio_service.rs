@@ -259,25 +259,23 @@ mod cpal_impl {
         send_f32(&data, encoder, sp);
     }
 
-    #[cfg(feature = "screencapturekit")]
+    #[cfg(target_os = "macos")]
     fn get_device() -> ResultType<(Device, SupportedStreamConfig)> {
-        let audio_input = super::get_audio_input();
-        if !audio_input.is_empty() {
-            return get_audio_input(&audio_input);
+        #[cfg(feature = "screencapturekit")]
+        {
+            let device = HOST_SCREEN_CAPTURE_KIT
+                .as_ref()?
+                .default_input_device()
+                .with_context(|| "Failed to get system audio capture device")?;
+            let format = device
+                .default_input_config()
+                .map_err(|e| anyhow!(e))
+                .with_context(|| "Failed to get system audio format")?;
+            log::info!("System audio format: {:?}", format);
+            Ok((device, format))
         }
-        if !is_screen_capture_kit_available() {
-            return get_audio_input("");
-        }
-        let device = HOST_SCREEN_CAPTURE_KIT
-            .as_ref()?
-            .default_input_device()
-            .with_context(|| "Failed to get default input device for loopback")?;
-        let format = device
-            .default_input_config()
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Failed to get input output format")?;
-        log::info!("Default input format: {:?}", format);
-        Ok((device, format))
+        #[cfg(not(feature = "screencapturekit"))]
+        bail!("System audio capture requires the screencapturekit feature")
     }
 
     #[cfg(windows)]
@@ -301,7 +299,7 @@ mod cpal_impl {
         Ok((device, format))
     }
 
-    #[cfg(not(any(windows, feature = "screencapturekit")))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     fn get_device() -> ResultType<(Device, SupportedStreamConfig)> {
         let audio_input = super::get_audio_input();
         get_audio_input(&audio_input)

@@ -90,7 +90,8 @@ The `.env` file stays local and is never packaged or committed.
 Run the build script:
 
 ```bash
-# Build Universal binary (.app, .dmg, .zip)
+# Build Universal binary (.app, .dmg, .zip) for macOS 13 or newer.
+# System audio uses ScreenCaptureKit; microphone capture is disabled.
 ./scripts/build-macos.sh 1.0.1 universal
 
 # Or target specific architectures:
